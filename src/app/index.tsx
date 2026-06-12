@@ -1,98 +1,65 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React from "react";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { Timer } from "lucide-react-native";
+import { useRouter } from "expo-router";
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+export default function WelcomeScreen() {
+  const router = useRouter();
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+    <View className="flex-1 bg-[#E8EEF2] items-center px-6 pb-12">
+      {/* Soft Background Orbs */}
+      <View className="absolute top-10 left-10 w-64 h-64 bg-blue-300/30 rounded-full blur-3xl" />
+      <View className="absolute bottom-20 right-10 w-72 h-72 bg-indigo-300/30 rounded-full blur-3xl" />
 
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+      {/* Center Section - 3D Element & Text */}
+      <View className="flex-1 items-center justify-center w-full">
+        {/* 3D Clock Element */}
+        <View style={styles.box3d} className="w-36 h-36 bg-[#F5F8FA] rounded-[36px] items-center justify-center mb-12">
+          {/* 3D Depth Layer */}
+          <View className="absolute w-full h-full rounded-[36px] border-b-[8px] border-r-[4px] border-[#D1D9E0]" />
+          <Timer color="#4F46E5" size={64} strokeWidth={2} />
+        </View>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+        <Text className="text-[#1E293B] text-4xl font-black text-center tracking-tight mb-4">
+          Master Your{"\n"}Digital Life
+        </Text>
+        
+        <Text className="text-[#64748B] text-base text-center leading-relaxed px-4 font-medium">
+          Take control of your screen time, build better habits, and reclaim your focus with personalized insights.
+        </Text>
+      </View>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+      {/* Bottom Section - Clean Button */}
+      <View className="w-full">
+        <TouchableOpacity 
+          activeOpacity={0.8}
+          onPress={() => router.push("/onboarding")}
+          style={styles.buttonShadow}
+          className="w-full bg-[#4F46E5] rounded-2xl items-center justify-center py-5"
+        >
+          <Text className="text-white font-extrabold text-xl tracking-wide">
+            Get Started
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+  box3d: {
+    shadowColor: '#8E9EAB',
+    shadowOffset: { width: 10, height: 15 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 15,
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
+  buttonShadow: {
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    elevation: 10,
+  }
 });
