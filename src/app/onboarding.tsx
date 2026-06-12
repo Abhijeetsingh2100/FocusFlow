@@ -114,7 +114,7 @@ export default function OnboardingScreen() {
           {slides.map((_, index) => (
             <View 
               key={index} 
-              className={`h-2.5 rounded-full transition-all duration-300 ${step === index ? 'w-10 bg-[#4F46E5]' : 'w-2.5 bg-[#CBD5E1]'}`} 
+              className={`h-2.5 rounded-full ${step === index ? 'w-10 bg-[#4F46E5]' : 'w-2.5 bg-[#CBD5E1]'}`} 
             />
           ))}
         </View>

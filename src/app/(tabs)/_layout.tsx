@@ -1,13 +1,35 @@
-import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Home, Settings } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 
 function GlassTabBar({ state, descriptors, navigation }: any) {
+  const animatedIndex = useRef(new Animated.Value(state.index)).current;
+
+  useEffect(() => {
+    Animated.spring(animatedIndex, {
+      toValue: state.index,
+      useNativeDriver: false, // Animating 'left' cannot use native driver
+      friction: 6,
+      tension: 60,
+    }).start();
+  }, [state.index]);
+
+  const tabWidthPercent = 100 / state.routes.length;
+  const animatedLeft = animatedIndex.interpolate({
+    inputRange: state.routes.map((_: any, i: number) => i),
+    outputRange: state.routes.map((_: any, i: number) => `${i * tabWidthPercent}%`),
+  });
+
   return (
     <View style={styles.tabBarContainer}>
       <BlurView intensity={80} tint="light" style={styles.blurView}>
+        {/* Animated Sliding Indicator */}
+        <Animated.View style={[styles.indicatorWrapper, { width: `${tabWidthPercent}%`, left: animatedLeft }]}>
+          <View style={styles.indicator} />
+        </Animated.View>
+
         {state.routes.map((route: any, index: number) => {
           const { options } = descriptors[route.key];
           const isFocused = state.index === index;
@@ -40,10 +62,6 @@ function GlassTabBar({ state, descriptors, navigation }: any) {
                   color: isFocused ? '#4F46E5' : '#94A3B8', 
                   focused: isFocused 
                 })}
-                {/* Active Indicator Dot */}
-                {isFocused && (
-                  <View style={styles.indicator} />
-                )}
               </View>
             </TouchableOpacity>
           );
@@ -113,9 +131,15 @@ const styles = StyleSheet.create({
     height: 48,
     width: 48,
   },
-  indicator: {
+  indicatorWrapper: {
     position: 'absolute',
     bottom: 0,
+    height: '100%',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingBottom: 8, // Spacing from bottom
+  },
+  indicator: {
     width: 6,
     height: 6,
     borderRadius: 3,
