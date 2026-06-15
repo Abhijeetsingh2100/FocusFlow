@@ -36,7 +36,8 @@
             "imageWidth": 76
           }
         }
-      ]
+      ],
+      "./modules/usagestats/app.plugin.js"
     ],
     "experiments": {
       "typedRoutes": true,

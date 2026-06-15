@@ -1,29 +1,99 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Animated } from 'react-native';
-import { Smartphone, Play, Music } from 'lucide-react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Animated, Platform, TouchableOpacity, Image } from 'react-native';
+import { Smartphone, Play, Music, Settings } from 'lucide-react-native';
 import Svg, { Circle } from 'react-native-svg';
+
+// Import our local Expo module
+let UsageStats: any = null;
+if (Platform.OS === 'android') {
+  try {
+    UsageStats = require('../../../../modules/usagestats');
+  } catch (e) {
+    console.log('UsageStats module not available', e);
+  }
+}
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 
+const COLORS = ['#EC4899', '#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#14B8A6'];
+
 export default function DashboardScreen() {
-  // Mock data for multiple apps
-  const apps = [
-    { id: 1, name: 'Instagram', category: 'Social Media', time: '2h 15m', minutes: 135, color: '#EC4899', Icon: Smartphone, bgClass: 'bg-pink-50' },
-    { id: 2, name: 'YouTube', category: 'Entertainment', time: '1h 20m', minutes: 80, color: '#EF4444', Icon: Play, bgClass: 'bg-red-50' },
-    { id: 3, name: 'TikTok', category: 'Entertainment', time: '45m', minutes: 45, color: '#0F172A', Icon: Music, bgClass: 'bg-slate-100' },
+  const [apps, setApps] = useState<any[]>([]);
+  const [hasPermission, setHasPermission] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
+
+  // Mock data for fallback (iOS / web / permission denied)
+  const mockApps = [
+    { id: '1', name: 'Instagram', category: 'Social Media', time: '2h 15m', minutes: 135, color: '#EC4899', iconData: null },
+    { id: '2', name: 'YouTube', category: 'Entertainment', time: '1h 20m', minutes: 80, color: '#EF4444', iconData: null },
+    { id: '3', name: 'TikTok', category: 'Entertainment', time: '45m', minutes: 45, color: '#0F172A', iconData: null },
   ];
+
+  const loadUsageStats = () => {
+    if (Platform.OS === 'android' && UsageStats) {
+      const permitted = UsageStats.checkForPermission();
+      setHasPermission(permitted);
+
+      if (permitted) {
+        const stats = UsageStats.getDailyUsage() || [];
+        // Sort by time descending
+        stats.sort((a: any, b: any) => b.totalTimeInForeground - a.totalTimeInForeground);
+        
+        // Take top 10 apps
+        const topStats = stats.slice(0, 10);
+        
+        const formattedApps = topStats.map((stat: any, index: number) => {
+          const minutes = Math.floor(stat.totalTimeInForeground / 1000 / 60);
+          const h = Math.floor(minutes / 60);
+          const m = minutes % 60;
+          return {
+            id: stat.packageName,
+            name: stat.appName || stat.packageName,
+            category: 'App', // We don't have category from UsageStats API
+            time: h > 0 ? `${h}h ${m}m` : `${m}m`,
+            minutes: minutes,
+            color: COLORS[index % COLORS.length],
+            iconData: stat.icon // Base64 string
+          };
+        });
+        
+        setApps(formattedApps.length > 0 ? formattedApps : mockApps);
+      } else {
+        setApps(mockApps);
+      }
+    } else {
+      setApps(mockApps);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadUsageStats();
+    // Poll for changes when they return from settings
+    const interval = setInterval(() => {
+      if (Platform.OS === 'android' && !hasPermission) {
+         loadUsageStats();
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [hasPermission]);
+
+  const requestPermission = () => {
+    if (UsageStats) {
+      UsageStats.showUsageAccessSettings();
+    }
+  };
 
   const totalUsedMinutes = apps.reduce((acc, app) => acc + app.minutes, 0);
   const usedHoursDisplay = `${Math.floor(totalUsedMinutes / 60)}h ${totalUsedMinutes % 60}m`;
 
   const size = 200;
-  const strokeWidth = 16; // Slightly thicker for a full donut chart
+  const strokeWidth = 16;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
 
-  let cumulativeAngle = -90; // Start at the top
+  let cumulativeAngle = -90;
 
-  // Animated Shadow Gradient
   const colorAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -31,19 +101,18 @@ export default function DashboardScreen() {
       Animated.timing(colorAnim, {
         toValue: 1,
         duration: 4000,
-        useNativeDriver: false, // shadowColor animation does not support native driver
+        useNativeDriver: false,
       })
     ).start();
   }, [colorAnim]);
 
   const animatedShadowColor = colorAnim.interpolate({
     inputRange: [0, 0.25, 0.5, 0.75, 1],
-    outputRange: ['#06B6D4', '#EC4899', '#38BDF8', '#1E3A8A', '#06B6D4'] // Cyan -> Pink -> Sky Blue -> Navy Blue -> Cyan
+    outputRange: ['#06B6D4', '#EC4899', '#38BDF8', '#1E3A8A', '#06B6D4']
   });
 
   return (
     <View className="flex-1 bg-[#F5F7FA]">
-      {/* Very Soft Background Orbs */}
       <View className="absolute top-0 left-0 w-full h-96 bg-blue-100/50 rounded-b-[100px] blur-3xl" />
 
       <ScrollView 
@@ -51,7 +120,6 @@ export default function DashboardScreen() {
         contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 80, paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
         <View className="mb-6 flex-row items-center justify-between">
           <View>
             <Text className="text-[#64748B] text-sm font-bold uppercase tracking-wider mb-1">Overview</Text>
@@ -59,87 +127,78 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* Main Progress Card */}
+        {!hasPermission && Platform.OS === 'android' && (
+          <TouchableOpacity 
+            onPress={requestPermission}
+            className="w-full bg-blue-600 rounded-[24px] p-5 mb-6 flex-row items-center"
+          >
+            <View className="bg-white/20 p-3 rounded-full mr-4">
+              <Settings color="#FFFFFF" size={24} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-white text-lg font-bold">Grant Usage Access</Text>
+              <Text className="text-blue-100 text-sm mt-1">Required to show real app screen time.</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+
         <AnimatedView 
-          style={[
-            styles.mainCard, 
-            { 
-              shadowColor: animatedShadowColor, 
-            }
-          ]} 
+          style={[styles.mainCard, { shadowColor: animatedShadowColor }]} 
           className="w-full bg-white rounded-[32px] p-8 mb-6 items-center"
         >
-          
           <Text className="text-[#0F172A] text-lg font-bold mb-6">Total Screen Time</Text>
           
-          {/* Elegant Segmented Circular Chart */}
           <View className="items-center justify-center relative mb-2">
             <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-              {/* Background Track (Only visible if apps array is empty, otherwise covered by full pie) */}
-              <Circle 
-                cx={size / 2} 
-                cy={size / 2} 
-                r={radius} 
-                stroke="#F1F5F9" 
-                strokeWidth={strokeWidth} 
-                fill="none" 
-              />
-              {/* App Segments */}
+              <Circle cx={size / 2} cy={size / 2} r={radius} stroke="#F1F5F9" strokeWidth={strokeWidth} fill="none" />
               {apps.map((app) => {
+                if (totalUsedMinutes === 0) return null;
                 const dashLength = (app.minutes / totalUsedMinutes) * circumference;
                 const dashGap = circumference - dashLength;
                 const strokeDasharray = `${dashLength} ${dashGap}`;
                 const rotateAngle = cumulativeAngle;
-                
-                // Add the current segment's angle to the cumulative for the next one
-                // Subtracting a tiny amount like 0.5 degrees visually creates perfect pie slices without gaps
                 cumulativeAngle += (app.minutes / totalUsedMinutes) * 360;
 
                 return (
                   <Circle 
                     key={app.id}
-                    cx={size / 2} 
-                    cy={size / 2} 
-                    r={radius} 
-                    stroke={app.color} 
-                    strokeWidth={strokeWidth} 
-                    fill="none" 
-                    strokeDasharray={strokeDasharray}
-                    strokeDashoffset={0}
-                    strokeLinecap="butt" 
+                    cx={size / 2} cy={size / 2} r={radius} 
+                    stroke={app.color} strokeWidth={strokeWidth} fill="none" 
+                    strokeDasharray={strokeDasharray} strokeDashoffset={0} strokeLinecap="butt" 
                     transform={`rotate(${rotateAngle} ${size / 2} ${size / 2})`}
                   />
                 );
               })}
             </Svg>
             
-            {/* Center Text */}
             <View className="absolute items-center justify-center">
               <Text className="text-[#0F172A] text-4xl font-black tracking-tighter">{usedHoursDisplay}</Text>
               <Text className="text-[#64748B] text-sm font-bold mt-1">Screen Time</Text>
             </View>
           </View>
-
         </AnimatedView>
 
-        {/* App Breakdown List */}
         <Text className="text-[#0F172A] text-xl font-bold tracking-tight mb-4 mt-2">App Breakdown</Text>
         
         {apps.map((app) => (
           <View key={app.id} style={styles.appCard} className="w-full bg-white rounded-[28px] p-5 flex-row items-center justify-between mb-4">
-            <View className="flex-row items-center">
-              <View className={`w-14 h-14 ${app.bgClass} rounded-[18px] items-center justify-center mr-4`}>
-                <app.Icon color={app.color} size={28} strokeWidth={2.5} />
+            <View className="flex-row items-center flex-1">
+              <View className="w-14 h-14 bg-slate-100 rounded-[18px] items-center justify-center mr-4 overflow-hidden">
+                {app.iconData ? (
+                  <Image source={{ uri: app.iconData }} style={{ width: 40, height: 40 }} />
+                ) : (
+                  <Smartphone color={app.color} size={28} strokeWidth={2.5} />
+                )}
               </View>
-              <View>
-                <Text className="text-[#0F172A] text-xl font-bold">{app.name}</Text>
+              <View className="flex-1 pr-4">
+                <Text className="text-[#0F172A] text-lg font-bold" numberOfLines={1}>{app.name}</Text>
                 <Text className="text-[#64748B] text-sm font-medium mt-0.5">{app.category}</Text>
               </View>
             </View>
-            <View className="items-end">
-              <Text className="text-[#0F172A] text-xl font-bold">{app.time}</Text>
+            <View className="items-end pl-2">
+              <Text className="text-[#0F172A] text-lg font-bold">{app.time}</Text>
               <Text style={{ color: app.color }} className="text-sm font-extrabold mt-1">
-                {Math.round((app.minutes / totalUsedMinutes) * 100)}%
+                {totalUsedMinutes > 0 ? Math.round((app.minutes / totalUsedMinutes) * 100) : 0}%
               </Text>
             </View>
           </View>
@@ -155,14 +214,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.25,
     shadowRadius: 30,
-    elevation: 20, // Required on Android for shadows, though colored shadows on Android require Pie/SDK28+
-  },
-  card: {
-    shadowColor: '#94A3B8',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.1,
-    shadowRadius: 24,
-    elevation: 8,
+    elevation: 20,
   },
   appCard: {
     shadowColor: '#8E9EAB',

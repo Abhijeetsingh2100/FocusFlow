@@ -8,15 +8,15 @@ export default function WelcomeScreen() {
 
   return (
     <View className="flex-1 bg-[#E8EEF2] items-center px-6 pb-12">
-      {/* Soft Background Orbs */}
+      
       <View className="absolute top-10 left-10 w-64 h-64 bg-blue-300/30 rounded-full blur-3xl" />
       <View className="absolute bottom-20 right-10 w-72 h-72 bg-indigo-300/30 rounded-full blur-3xl" />
 
-      {/* Center Section - 3D Element & Text */}
+      
       <View className="flex-1 items-center justify-center w-full">
-        {/* 3D Clock Element */}
+        
         <View style={styles.box3d} className="w-36 h-36 bg-[#F5F8FA] rounded-[36px] items-center justify-center mb-12">
-          {/* 3D Depth Layer */}
+         
           <View className="absolute w-full h-full rounded-[36px] border-b-[8px] border-r-[4px] border-[#D1D9E0]" />
           <Timer color="#4F46E5" size={64} strokeWidth={2} />
         </View>
@@ -30,7 +30,7 @@ export default function WelcomeScreen() {
         </Text>
       </View>
 
-      {/* Bottom Section - Clean Button */}
+      
       <View className="w-full">
         <TouchableOpacity 
           activeOpacity={0.8}
