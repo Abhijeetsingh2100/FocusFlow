@@ -22,7 +22,7 @@ export default function WelcomeScreen() {
         </View>
 
         <Text className="text-[#1E293B] text-4xl font-black text-center tracking-tight mb-4">
-          Master Your{"\n"}Digital Life
+          Moniter Your{"\n"}Digital Life
         </Text>
         
         <Text className="text-[#64748B] text-base text-center leading-relaxed px-4 font-medium">
