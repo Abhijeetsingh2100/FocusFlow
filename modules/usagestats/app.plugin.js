@@ -22,6 +22,19 @@ const withUsageStatsPermission = (config) => {
       });
     }
 
+    const hasQueryAll = manifest['uses-permission'].find(
+      (item) => item.$['android:name'] === 'android.permission.QUERY_ALL_PACKAGES'
+    );
+
+    if (!hasQueryAll) {
+      manifest['uses-permission'].push({
+        $: {
+          'android:name': 'android.permission.QUERY_ALL_PACKAGES',
+          'tools:ignore': 'ProtectedPermissions',
+        },
+      });
+    }
+
     // Ensure the tools namespace is present if we use tools:ignore
     if (!manifest.$['xmlns:tools']) {
       manifest.$['xmlns:tools'] = 'http://schemas.android.com/tools';

@@ -17,7 +17,12 @@ export function showUsageAccessSettings(): void {
   UsageStatsModule.showUsageAccessSettings();
 }
 
-export function getDailyUsage(): UsageStat[] {
-  if (!UsageStatsModule) return [];
+export type DailyUsageResponse = {
+  totalScreenTime: number;
+  apps: UsageStat[];
+};
+
+export function getDailyUsage(): DailyUsageResponse {
+  if (!UsageStatsModule) return { totalScreenTime: 0, apps: [] };
   return UsageStatsModule.getDailyUsage();
 }

@@ -7,7 +7,7 @@ import Svg, { Circle } from 'react-native-svg';
 let UsageStats: any = null;
 if (Platform.OS === 'android') {
   try {
-    UsageStats = require('../../../../modules/usagestats');
+    UsageStats = require('../../../modules/usagestats');
   } catch (e) {
     console.log('UsageStats module not available', e);
   }
@@ -19,6 +19,7 @@ const COLORS = ['#EC4899', '#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6'
 
 export default function DashboardScreen() {
   const [apps, setApps] = useState<any[]>([]);
+  const [totalMinutes, setTotalMinutes] = useState<number>(0);
   const [hasPermission, setHasPermission] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
 
@@ -35,12 +36,17 @@ export default function DashboardScreen() {
       setHasPermission(permitted);
 
       if (permitted) {
-        const stats = UsageStats.getDailyUsage() || [];
+        const response = UsageStats.getDailyUsage() || { totalScreenTime: 0, apps: [] };
+        const stats = response.apps || [];
         // Sort by time descending
         stats.sort((a: any, b: any) => b.totalTimeInForeground - a.totalTimeInForeground);
         
-        // Take top 10 apps
-        const topStats = stats.slice(0, 10);
+        // Use true total screen time directly from device screen-on events
+        const totalMins = Math.floor(response.totalScreenTime / 1000 / 60);
+        setTotalMinutes(totalMins);
+
+        // Take top 5 apps
+        const topStats = stats.slice(0, 5);
         
         const formattedApps = topStats.map((stat: any, index: number) => {
           const minutes = Math.floor(stat.totalTimeInForeground / 1000 / 60);
@@ -60,9 +66,11 @@ export default function DashboardScreen() {
         setApps(formattedApps.length > 0 ? formattedApps : mockApps);
       } else {
         setApps(mockApps);
+        setTotalMinutes(mockApps.reduce((acc, app) => acc + app.minutes, 0));
       }
     } else {
       setApps(mockApps);
+      setTotalMinutes(mockApps.reduce((acc, app) => acc + app.minutes, 0));
     }
     setLoading(false);
   };
@@ -84,8 +92,7 @@ export default function DashboardScreen() {
     }
   };
 
-  const totalUsedMinutes = apps.reduce((acc, app) => acc + app.minutes, 0);
-  const usedHoursDisplay = `${Math.floor(totalUsedMinutes / 60)}h ${totalUsedMinutes % 60}m`;
+  const usedHoursDisplay = `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
 
   const size = 200;
   const strokeWidth = 16;
@@ -152,12 +159,12 @@ export default function DashboardScreen() {
             <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
               <Circle cx={size / 2} cy={size / 2} r={radius} stroke="#F1F5F9" strokeWidth={strokeWidth} fill="none" />
               {apps.map((app) => {
-                if (totalUsedMinutes === 0) return null;
-                const dashLength = (app.minutes / totalUsedMinutes) * circumference;
+                if (totalMinutes === 0) return null;
+                const dashLength = (app.minutes / totalMinutes) * circumference;
                 const dashGap = circumference - dashLength;
                 const strokeDasharray = `${dashLength} ${dashGap}`;
                 const rotateAngle = cumulativeAngle;
-                cumulativeAngle += (app.minutes / totalUsedMinutes) * 360;
+                cumulativeAngle += (app.minutes / totalMinutes) * 360;
 
                 return (
                   <Circle 
@@ -198,7 +205,7 @@ export default function DashboardScreen() {
             <View className="items-end pl-2">
               <Text className="text-[#0F172A] text-lg font-bold">{app.time}</Text>
               <Text style={{ color: app.color }} className="text-sm font-extrabold mt-1">
-                {totalUsedMinutes > 0 ? Math.round((app.minutes / totalUsedMinutes) * 100) : 0}%
+                {totalMinutes > 0 ? Math.round((app.minutes / totalMinutes) * 100) : 0}%
               </Text>
             </View>
           </View>

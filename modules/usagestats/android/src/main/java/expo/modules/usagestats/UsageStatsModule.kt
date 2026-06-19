@@ -51,37 +51,65 @@ class UsageStatsModule : Module() {
       calendar.set(Calendar.MINUTE, 0)
       calendar.set(Calendar.SECOND, 0)
       calendar.set(Calendar.MILLISECOND, 0)
-      val startTime = calendar.timeInMillis
+      val defaultLauncherIntent = Intent(Intent.ACTION_MAIN)
+      defaultLauncherIntent.addCategory(Intent.CATEGORY_HOME)
+      val launcherResolveInfo = pm.resolveActivity(defaultLauncherIntent, PackageManager.MATCH_DEFAULT_ONLY)
+      val defaultLauncherPackage = launcherResolveInfo?.activityInfo?.packageName
+
+      val startOfDay = calendar.timeInMillis
       val endTime = System.currentTimeMillis()
+
+      // INTERVAL_DAILY asks the OS to specifically give us the bucket for TODAY starting at midnight.
+      // This is exactly what Digital Wellbeing uses internally, avoiding manual overlap bugs.
+      val usageStatsList = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startOfDay, endTime)
       
-      val usageStats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startTime, endTime)
-      
+      val appUsageMap = mutableMapOf<String, Long>()
+      for (stats in usageStatsList) {
+          appUsageMap[stats.packageName] = appUsageMap.getOrDefault(stats.packageName, 0L) + stats.totalTimeInForeground
+      }
+
+      var totalScreenTime = 0L
       val statsList = mutableListOf<Map<String, Any>>()
       
-      for (stats in usageStats) {
-        if (stats.totalTimeInForeground > 0) {
+      for ((packageName, appTime) in appUsageMap) {
+          if (appTime <= 0) continue
+          
+          if (packageName == defaultLauncherPackage) continue
+          
+          val launchIntent = pm.getLaunchIntentForPackage(packageName)
+          if (launchIntent == null) continue
+          
+          var appName = packageName
+          var iconBase64: String? = null
+          
           try {
-            val appInfo = pm.getApplicationInfo(stats.packageName, 0)
-            val appName = pm.getApplicationLabel(appInfo).toString()
-            
-            // Generate icon
+            val appInfo = pm.getApplicationInfo(packageName, 0)
+            appName = pm.getApplicationLabel(appInfo).toString()
             val iconDrawable = pm.getApplicationIcon(appInfo)
-            val iconBase64 = drawableToBase64(iconDrawable)
-            
-            val map = mapOf(
-              "packageName" to stats.packageName,
-              "appName" to appName,
-              "totalTimeInForeground" to stats.totalTimeInForeground,
-              "icon" to iconBase64
-            )
-            statsList.add(map)
+            iconBase64 = drawableToBase64(iconDrawable)
           } catch (e: PackageManager.NameNotFoundException) {
-            // Ignore apps not found
+            // Fallback gracefully
           }
-        }
+          
+          totalScreenTime += appTime
+          
+          val map = mutableMapOf<String, Any>(
+            "packageName" to packageName,
+            "appName" to appName,
+            "totalTimeInForeground" to appTime
+          )
+          
+          if (iconBase64 != null) {
+            map["icon"] = iconBase64
+          }
+          
+          statsList.add(map)
       }
       
-      return@Function statsList
+      return@Function mapOf(
+        "totalScreenTime" to totalScreenTime,
+        "apps" to statsList
+      )
     }
   }
   
