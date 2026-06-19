@@ -59,17 +59,66 @@ class UsageStatsModule : Module() {
       val startOfDay = calendar.timeInMillis
       val endTime = System.currentTimeMillis()
 
-      // INTERVAL_DAILY asks the OS to specifically give us the bucket for TODAY starting at midnight.
-      // This is exactly what Digital Wellbeing uses internally, avoiding manual overlap bugs.
-      val usageStatsList = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startOfDay, endTime)
+      val usageEvents = usageStatsManager.queryEvents(startOfDay, endTime)
+      val event = android.app.usage.UsageEvents.Event()
       
       val appUsageMap = mutableMapOf<String, Long>()
-      for (stats in usageStatsList) {
-          appUsageMap[stats.packageName] = appUsageMap.getOrDefault(stats.packageName, 0L) + stats.totalTimeInForeground
+      val appResumeTimes = mutableMapOf<String, Long>()
+      
+      var totalScreenTime = 0L
+      var screenOnTime = -1L
+
+      while (usageEvents.hasNextEvent()) {
+          usageEvents.getNextEvent(event)
+          val packageName = event.packageName
+          val timeStamp = event.timeStamp
+          val eventType = event.eventType
+
+          if (eventType == android.app.usage.UsageEvents.Event.SCREEN_INTERACTIVE) {
+              screenOnTime = timeStamp
+          } else if (eventType == android.app.usage.UsageEvents.Event.SCREEN_NON_INTERACTIVE) {
+              if (screenOnTime != -1L) {
+                  totalScreenTime += (timeStamp - screenOnTime)
+                  screenOnTime = -1L
+              } else {
+                  totalScreenTime += (timeStamp - startOfDay)
+              }
+          }
+
+          if (eventType == android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED) {
+              appResumeTimes[packageName] = timeStamp
+          } else if (eventType == android.app.usage.UsageEvents.Event.ACTIVITY_PAUSED || 
+                     eventType == android.app.usage.UsageEvents.Event.ACTIVITY_STOPPED) {
+              val resumeTime = appResumeTimes.remove(packageName)
+              if (resumeTime != null) {
+                  val duration = timeStamp - resumeTime
+                  if (duration > 0) {
+                      appUsageMap[packageName] = appUsageMap.getOrDefault(packageName, 0L) + duration
+                  }
+              } else {
+                  if (!appUsageMap.containsKey(packageName)) {
+                      val duration = timeStamp - startOfDay
+                      if (duration > 0) {
+                          appUsageMap[packageName] = duration
+                      }
+                  }
+              }
+          }
       }
 
-      var totalScreenTime = 0L
+      if (screenOnTime != -1L) {
+          totalScreenTime += (endTime - screenOnTime)
+      }
+
+      for ((packageName, resumeTime) in appResumeTimes) {
+          val duration = endTime - resumeTime
+          if (duration > 0) {
+              appUsageMap[packageName] = appUsageMap.getOrDefault(packageName, 0L) + duration
+          }
+      }
+
       val statsList = mutableListOf<Map<String, Any>>()
+      var totalAppTime = 0L
       
       for ((packageName, appTime) in appUsageMap) {
           if (appTime <= 0) continue
@@ -91,7 +140,7 @@ class UsageStatsModule : Module() {
             // Fallback gracefully
           }
           
-          totalScreenTime += appTime
+          totalAppTime += appTime
           
           val map = mutableMapOf<String, Any>(
             "packageName" to packageName,
@@ -107,7 +156,7 @@ class UsageStatsModule : Module() {
       }
       
       return@Function mapOf(
-        "totalScreenTime" to totalScreenTime,
+        "totalScreenTime" to maxOf(totalScreenTime, totalAppTime),
         "apps" to statsList
       )
     }
