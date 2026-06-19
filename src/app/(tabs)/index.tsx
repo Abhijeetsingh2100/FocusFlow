@@ -22,6 +22,7 @@ export default function DashboardScreen() {
   const [totalMinutes, setTotalMinutes] = useState<number>(0);
   const [hasPermission, setHasPermission] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
+  const [showAll, setShowAll] = useState(false);
 
   // Mock data for fallback (iOS / web / permission denied)
   const mockApps = [
@@ -45,21 +46,18 @@ export default function DashboardScreen() {
         const totalMins = Math.floor(response.totalScreenTime / 1000 / 60);
         setTotalMinutes(totalMins);
 
-        // Take top 5 apps
-        const topStats = stats.slice(0, 5);
-        
-        const formattedApps = topStats.map((stat: any, index: number) => {
+        const formattedApps = stats.map((stat: any, index: number) => {
           const minutes = Math.floor(stat.totalTimeInForeground / 1000 / 60);
           const h = Math.floor(minutes / 60);
           const m = minutes % 60;
           return {
             id: stat.packageName,
             name: stat.appName || stat.packageName,
-            category: 'App', // We don't have category from UsageStats API
+            category: 'App',
             time: h > 0 ? `${h}h ${m}m` : `${m}m`,
             minutes: minutes,
             color: COLORS[index % COLORS.length],
-            iconData: stat.icon // Base64 string
+            iconData: stat.icon
           };
         });
         
@@ -187,7 +185,7 @@ export default function DashboardScreen() {
 
         <Text className="text-[#0F172A] text-xl font-bold tracking-tight mb-4 mt-2">App Breakdown</Text>
         
-        {apps.map((app) => (
+        {(showAll ? apps : apps.slice(0, 5)).map((app) => (
           <View key={app.id} style={styles.appCard} className="w-full bg-white rounded-[28px] p-5 flex-row items-center justify-between mb-4">
             <View className="flex-row items-center flex-1">
               <View className="w-14 h-14 bg-slate-100 rounded-[18px] items-center justify-center mr-4 overflow-hidden">
@@ -210,6 +208,16 @@ export default function DashboardScreen() {
             </View>
           </View>
         ))}
+
+        {apps.length > 5 && (
+          <TouchableOpacity 
+            onPress={() => setShowAll(!showAll)}
+            className="w-full bg-white rounded-[24px] p-4 items-center justify-center mb-4"
+            style={styles.appCard}
+          >
+            <Text className="text-blue-600 font-bold text-lg">{showAll ? "Show Less" : "View All Apps"}</Text>
+          </TouchableOpacity>
+        )}
 
       </ScrollView>
     </View>

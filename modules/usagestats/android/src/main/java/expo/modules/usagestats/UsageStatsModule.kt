@@ -63,7 +63,7 @@ class UsageStatsModule : Module() {
       val event = android.app.usage.UsageEvents.Event()
       
       val appUsageMap = mutableMapOf<String, Long>()
-      val appResumeTimes = mutableMapOf<String, Long>()
+      val activeSessions = mutableMapOf<String, Long>()
       
       var totalScreenTime = 0L
       var screenOnTime = -1L
@@ -75,32 +75,27 @@ class UsageStatsModule : Module() {
           val eventType = event.eventType
 
           if (eventType == android.app.usage.UsageEvents.Event.SCREEN_INTERACTIVE) {
-              screenOnTime = timeStamp
+              if (screenOnTime == -1L) {
+                  screenOnTime = timeStamp
+              }
           } else if (eventType == android.app.usage.UsageEvents.Event.SCREEN_NON_INTERACTIVE) {
               if (screenOnTime != -1L) {
                   totalScreenTime += (timeStamp - screenOnTime)
                   screenOnTime = -1L
-              } else {
-                  totalScreenTime += (timeStamp - startOfDay)
               }
           }
 
           if (eventType == android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED) {
-              appResumeTimes[packageName] = timeStamp
+              if (!activeSessions.containsKey(packageName)) {
+                  activeSessions[packageName] = timeStamp
+              }
           } else if (eventType == android.app.usage.UsageEvents.Event.ACTIVITY_PAUSED || 
                      eventType == android.app.usage.UsageEvents.Event.ACTIVITY_STOPPED) {
-              val resumeTime = appResumeTimes.remove(packageName)
-              if (resumeTime != null) {
-                  val duration = timeStamp - resumeTime
+              val sessionStart = activeSessions.remove(packageName)
+              if (sessionStart != null) {
+                  val duration = timeStamp - sessionStart
                   if (duration > 0) {
                       appUsageMap[packageName] = appUsageMap.getOrDefault(packageName, 0L) + duration
-                  }
-              } else {
-                  if (!appUsageMap.containsKey(packageName)) {
-                      val duration = timeStamp - startOfDay
-                      if (duration > 0) {
-                          appUsageMap[packageName] = duration
-                      }
                   }
               }
           }
@@ -110,15 +105,14 @@ class UsageStatsModule : Module() {
           totalScreenTime += (endTime - screenOnTime)
       }
 
-      for ((packageName, resumeTime) in appResumeTimes) {
-          val duration = endTime - resumeTime
+      for ((packageName, sessionStart) in activeSessions) {
+          val duration = endTime - sessionStart
           if (duration > 0) {
               appUsageMap[packageName] = appUsageMap.getOrDefault(packageName, 0L) + duration
           }
       }
 
       val statsList = mutableListOf<Map<String, Any>>()
-      var totalAppTime = 0L
       
       for ((packageName, appTime) in appUsageMap) {
           if (appTime <= 0) continue
@@ -137,10 +131,8 @@ class UsageStatsModule : Module() {
             val iconDrawable = pm.getApplicationIcon(appInfo)
             iconBase64 = drawableToBase64(iconDrawable)
           } catch (e: PackageManager.NameNotFoundException) {
-            // Fallback gracefully
+            // Fallback
           }
-          
-          totalAppTime += appTime
           
           val map = mutableMapOf<String, Any>(
             "packageName" to packageName,
@@ -156,7 +148,7 @@ class UsageStatsModule : Module() {
       }
       
       return@Function mapOf(
-        "totalScreenTime" to maxOf(totalScreenTime, totalAppTime),
+        "totalScreenTime" to totalScreenTime,
         "apps" to statsList
       )
     }
